@@ -1,0 +1,7 @@
+build/
+dist/
+staging_modules/
+nrpc_cli.egg-info/
+.pytest_cache/
+.backup/
+__pycache__/
