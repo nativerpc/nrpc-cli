@@ -434,6 +434,7 @@ class TermLauncher:
                 self.printed_lines.append('')
 
             elif ch == b'l':
+                self.last_selection = 'Lock'
                 self.states_locked = not self.states_locked
 
             elif ch == b'n':
