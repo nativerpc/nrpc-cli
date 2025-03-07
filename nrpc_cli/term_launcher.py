@@ -11,12 +11,14 @@
 #
 import json
 from colorama import Fore, Style
+import os
 import time
 import threading
 import datetime
 import nrpc_cli.server_socket
 from nrpc_cli.common_base import (
     LAUNCHER_PORT,
+    LAUNCHER_CONFIG,
     LauncherCommand,
     CommandInfo,
     LINE_UP,
@@ -31,6 +33,7 @@ from nrpc_cli.common_base import (
     get_dict_text,
     is_number,
 )
+import nrpc_cli.show_navigator
 
 
 class TermLauncher:
@@ -40,17 +43,24 @@ class TermLauncher:
     visible_commands: list[CommandInfo]
     ordered_client_ids: list
     printed_lines: list[str]
+    network_mode: bool
     selected_index: int
     last_selection: str
     last_selection_start: float
     show_help: bool
     verbosity_level: int
     update_count: list
+    start_path: str
+    config_time: float
+    config_check: float
+    config_dirty: bool
     clients_dirty: bool
     states_dirty: bool
+    states_locked: bool
     custom_lines: list
     server_socket: nrpc_cli.server_socket.ServerSocket
     processor: threading.Thread
+    network_navigator: nrpc_cli.show_navigator.ShowNavigator
 
     def __init__(self, command_args):
         self.is_alive = True
@@ -59,14 +69,20 @@ class TermLauncher:
         self.visible_commands = []
         self.ordered_client_ids = []
         self.printed_lines = []
+        self.network_mode = False
         self.selected_index = 0
         self.last_selection = ''
         self.last_selection_start = 0
-        self.show_help = False
+        self.show_help = True
         self.verbosity_level = 0
-        self.update_count = [0] * 5
+        self.update_count = [0] * 6
+        self.start_path = os.curdir
+        self.config_time = 0.0
+        self.config_check = time.time()
+        self.config_dirty = True
         self.clients_dirty = True
         self.states_dirty = False
+        self.states_locked = False
         self.custom_lines = []
 
         self.server_socket = nrpc_cli.server_socket.ServerSocket(
@@ -83,7 +99,12 @@ class TermLauncher:
         self.processor = threading.Thread(target=self.socket_reader)
         self.processor.start()
 
-        self.load_commands(command_args)
+        self.network_navigator = nrpc_cli.show_navigator.ShowNavigator(integrated_mode=True)
+        # if self.network_navigator.has_nrpc_py:
+            # self.network_navigator.create_sockets()
+        # self.network_navigator.read_sockets()
+
+        self.load_commands([x.split(':') for x in command_args])
 
     def load_commands(self, command_args):
         commands = []
@@ -94,6 +115,7 @@ class TermLauncher:
         command.client_index = 0
         command.client_id = 0
         command.command_index = command_index
+        command.command_path = ''
         command.command_type = 'clear'
         command.command_entry = ''
         command.command_parameters = ''
@@ -105,12 +127,36 @@ class TermLauncher:
         command.client_index = 0
         command.client_id = 0
         command.command_index = command_index
+        command.command_path = ''
         command.command_type = 'stop'
         command.command_entry = ''
         command.command_parameters = ''
         command.visible = True
         commands.append(command)
         command_index += 1
+
+        if not command_args:
+            with open(LAUNCHER_CONFIG, 'rt') as file:
+                client_index = 0
+                for line in file.readlines():
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if line.startswith('-----'):
+                        client_index += 1
+                        command_args.append([])
+                    elif client_index == 0:
+                        if ':' in line:
+                            parts = [line[0: line.index(':')], line[line.index(':')+1:]]
+                            parts = [x.strip() for x in parts]
+                            if parts[0] == 'start':
+                                self.start_path = os.path.abspath(parts[1])
+                                assert os.path.exists(self.start_path)
+                            elif parts[0] == 'help':
+                                self.show_help = parts[1] in ['1', 'true']
+
+                    elif client_index > 0:
+                        command_args[client_index - 1].append(line)
 
         client_index = 0
         for client_commands in command_args:
@@ -120,6 +166,7 @@ class TermLauncher:
             command.client_index = client_index
             command.client_id = 0
             command.command_index = command_index
+            command.command_path = ''
             command.command_type = 'clear'
             command.command_entry = ''
             command.command_parameters = ''
@@ -131,6 +178,7 @@ class TermLauncher:
             command.client_index = client_index
             command.client_id = 0
             command.command_index = command_index
+            command.command_path = ''
             command.command_type = 'stop'
             command.command_entry = ''
             command.command_parameters = ''
@@ -138,7 +186,8 @@ class TermLauncher:
             commands.append(command)
             command_index += 1
 
-            for client_command in client_commands.split(':'):
+            command_path = self.start_path
+            for client_command in client_commands:
                 parts = client_command.split()
                 has_entry = parts[0] in ['run', 'build', 'python']
                 params_start = 2 if has_entry else 1
@@ -148,6 +197,7 @@ class TermLauncher:
                 command.client_index = client_index
                 command.client_id = 0
                 command.command_index = command_index
+                command.command_path = command_path
                 command.command_type = parts[0]
                 command.command_entry = parts[1] if has_entry and 1 < len(parts) else ''
                 command.command_parameters = \
@@ -156,11 +206,27 @@ class TermLauncher:
                 commands.append(command)
                 command_index += 1
 
+                if parts[0] == 'cd':
+                    assert len(parts) == 2
+                    command_path = os.path.join(command_path, parts[1])
+                    command_path = os.path.abspath(command_path)
+
+
         self.all_commands = commands
         self.visible_commands = [x for x in commands if x.visible]
+        self.config_time = os.path.getmtime(LAUNCHER_CONFIG)
+        self.config_check = time.time()
+        self.config_dirty = False
+        self.clients_dirty = True
 
     def main_loop(self):
         while self.is_alive:
+            if self.config_dirty:
+                self.last_selection = 'Reload'
+                self.load_commands([])
+                self.config_time = os.path.getmtime(LAUNCHER_CONFIG)
+                self.config_dirty = False
+
             if self.clients_dirty or self.server_socket.get_client_change(0, self.ordered_client_ids):
                 client_ids = self.server_socket.get_client_ids()
                 self.clients_dirty = False
@@ -189,6 +255,8 @@ class TermLauncher:
                             ]
                         )
                         resp = self.server_socket.recv_rev(client_id)
+                        if not resp:
+                            continue
                         resp = json.loads(resp.decode())
 
                     for item in resp['executables']:
@@ -215,7 +283,10 @@ class TermLauncher:
 
             self.print_commands()
 
-            self.last_selection = ''
+            if self.states_locked:
+                pass
+            else:
+                self.last_selection = ''
 
             # Sleep and detect changes
             # Look for following changes:
@@ -232,6 +303,16 @@ class TermLauncher:
                 latest_ids = self.server_socket.get_client_ids()
                 if get_key_down():
                     break
+
+                if time.time() - self.config_check > 0.5:
+                    self.config_check = time.time()
+                    if self.config_time != os.path.getmtime(LAUNCHER_CONFIG):
+                        self.config_time = os.path.getmtime(LAUNCHER_CONFIG)
+                        self.config_dirty = True
+                        self.clients_dirty = True
+                        self.update_count[5] += 1
+                        just_update = True
+                        break
 
                 if self.server_socket.get_client_change(0.1, self.ordered_client_ids):
                     self.clients_dirty = True
@@ -273,10 +354,13 @@ class TermLauncher:
                         for item in resp['executables']:
                             cmd_item = find_one(self.all_commands, lambda x: x.client_index ==
                                                 client_index and x.command_index == item['command_index'])
+                            assert cmd_item.command_path == item['command_path']
                             assert cmd_item.command_type == item['command_type']
                             assert cmd_item.command_entry == item['command_entry']
                             checked += 1
-                            if cmd_item.enabled != item['enabled']:
+                            if self.states_locked:
+                                pass
+                            elif cmd_item.enabled != item['enabled']:
                                 self.update_count[4] += 1
                                 just_update = True
                                 self.states_dirty = True
@@ -346,8 +430,26 @@ class TermLauncher:
             elif ch == b'r':
                 self.last_selection = 'Reload'
                 # print(f'{LINE_START}Selection: {Fore.YELLOW}Reload{Fore.RESET}')
-                self.load_commands(True)
+                self.load_commands([])
                 self.printed_lines.append('')
+
+            elif ch == b'l':
+                self.states_locked = not self.states_locked
+
+            elif ch == b'n':
+                self.last_selection = 'Network'
+                self.network_mode = not self.network_mode
+                self.network_navigator.show_help = self.show_help
+                self.network_navigator.printed_lines = self.printed_lines
+                if self.network_navigator.create_sockets():
+                    time.sleep(1.0)
+                self.network_navigator.read_sockets()
+                self.network_navigator.main_loop()
+                self.show_help = self.network_navigator.show_help
+                self.printed_lines = self.network_navigator.printed_lines
+                self.network_mode = False
+                if not self.network_navigator.is_alive:
+                    break
 
             elif ch == b'h':
                 self.show_help = not self.show_help
@@ -441,9 +543,10 @@ class TermLauncher:
                 self.is_alive = False
                 break
 
-            # elif ch == b'e':
-            #     self.last_selection = 'Edit'
-            #     os.system(f'code {self.demo_config}')
+            elif ch == b'e':
+                self.last_selection = 'Edit'
+                print(f'{LINE_START}{LINE_CLEAR}Selection: {Fore.GREEN}{self.last_selection}{Fore.RESET}', end='', flush=True)
+                os.system(f'code {LAUNCHER_CONFIG.replace("\\", "\\\\")}')
 
             elif ch == b's' or ch == b'k' or ch == b'x' or ch == b'{esc}':
                 self.last_selection = 'Stop'
@@ -517,6 +620,7 @@ class TermLauncher:
                     'client_index': item.client_index,
                     'client_id': item.client_id,
                     'command_index': item.command_index,
+                    'command_path': item.command_path,
                     'command_type': item.command_type,
                     'command_entry': item.command_entry,
                     'command_parameters': item.command_parameters,
@@ -533,6 +637,8 @@ class TermLauncher:
                     ]
                 )
                 resp = self.server_socket.recv_rev(client_id)
+                if not resp:
+                    continue
                 resp = json.loads(resp.decode())
 
             for item in resp['executables']:
@@ -562,7 +668,7 @@ class TermLauncher:
     def print_commands(self):
         lines = []
         lines.extend(self.custom_lines)
-        lines.extend(['[TERMINAL UI]', ''])
+        lines.extend([f'[TERMINALS] {Style.DIM}[NETWORK]{Style.NORMAL}', ''])
         # lines = []
         cmd_index = -1
         prefix = ''
@@ -581,11 +687,18 @@ class TermLauncher:
                 colr = f'{Style.DIM}{colr}'
 
             cmd_num = ''
+            command_path = command.command_path
+            cmd_path = ''
+            if self.verbosity_level >= 1:
+                cmd_path = f'{Style.DIM}{command_path}{Style.NORMAL} '
             command_type = command.command_type
             command_entry = command.command_entry
             command_final = f'{command_type} {command_entry}'.strip()
             if self.verbosity_level >= 1:
-                cmd_num = f'{Fore.GREEN}[{command.command_index}]{Fore.RESET} '
+                if command.client_index > 0:
+                    cmd_num = f'{Fore.GREEN}[{command.command_index - 2}]{Fore.RESET} '
+                else:
+                    cmd_num = f'{Fore.GREEN}[{command.command_index}]{Fore.RESET} '
             else:
                 cmd_num = ''
 
@@ -601,7 +714,7 @@ class TermLauncher:
                         f'    {Style.DIM}{Fore.RESET}--------------- {command.client_index} ---------------{Fore.RESET}{Style.NORMAL}')
 
             lines.append(
-                f'{prefix} {arrow} {cmd_num}{colr}{command_final}{Fore.RESET}{Style.NORMAL} '
+                f'{prefix} {arrow} {cmd_num}{cmd_path}{colr}{command_final}{Fore.RESET}{Style.NORMAL} '
                 f'{colr2}{command.command_parameters}{Fore.RESET}'
                 f'{Style.NORMAL}'
             )
@@ -614,8 +727,8 @@ class TermLauncher:
         
         if self.show_help:
             lines.append('Help:')
-            lines.append('    C - clear, S - stop, V - verbose, H - help')
-            lines.append('    Up/Down - scroll, Space - run, Enter - run')
+            lines.append('    C - clear, S - stop, V - verbose, N - network')
+            lines.append('    Up/Down - scroll, Space - run, E - edit')
             lines.append('    Left/Right - adjust, Esc - stop, Q - exit')
             lines.append('')
 

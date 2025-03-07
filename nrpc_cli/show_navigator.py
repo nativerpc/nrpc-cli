@@ -9,8 +9,8 @@
 #           print_window
 #
 from colorama import Fore, Style
-import time
 import os
+import time
 from nrpc_cli.common_base import (
     LINE_UP,
     LINE_START,
@@ -22,8 +22,9 @@ from nrpc_cli.common_base import (
 try:
     import nrpc_py
 except:  # noqa
-    print('Missing nrpc-py dependency! Only "term" tooling is supported.')
-    os._exit(1)
+    # print('Missing nrpc-py dependency! Only "term" tooling is supported.')
+    # os._exit(1)
+    pass
 
 
 class ShowNavigator:
@@ -36,45 +37,51 @@ class ShowNavigator:
     show_help: bool
     last_selection: str
     last_selection_start: float
-    client_sockets: list[nrpc_py.RoutingSocket]
+    client_sockets: list[any]  # list[nrpc_py.RoutingSocket]
     client_data: list[any]
+    integrated_mode: bool
 
-    def __init__(self):
+    def __init__(self, integrated_mode=False):
         self.is_alive = True
         self.is_ready = False
         self.printed_lines = []
         self.drill_down_level = 0
         self.selected_index = [0] * 3
         self.selected_counts = [0] * 3
-        self.show_help = False
+        self.show_help = True
         self.last_selection = ''
         self.last_selection_start = 0
         self.client_sockets = [None] * 10
         self.client_data = []
+        self.integrated_mode = integrated_mode
+        self.has_nrpc_py = 'nrpc_py' in globals()
 
     def create_sockets(self):
         start = 9000
+        created = False
         for index in range(len(self.client_sockets)):
             if not self.is_alive:
                 break
             if self.client_sockets[index] and \
-                self.client_sockets[index].client_socket.is_validated and \
-                    self.client_sockets[index].client_socket.is_lost:
+                (not self.client_sockets[index].client_socket.is_alive or \
+                    self.client_sockets[index].client_socket.is_lost):
                 # print(f'Client lost, #{index}')
                 self.client_sockets[index].close()
                 self.client_sockets[index] = None
                 time.sleep(0.5)
             if self.client_sockets[index]:
                 continue
-            sock = nrpc_py.RoutingSocket(nrpc_py.RoutingSocketOptions(
+            sock = nrpc_py.RoutingSocket(
                 type=nrpc_py.SocketType.CONNECT,
                 protocol=nrpc_py.ProtocolType.TCP,
                 format=nrpc_py.FormatType.JSON,
                 caller='show_navigator_py',
                 types=[]
-            ))
+            )
             sock.connect('127.0.0.1', start + index, wait=False, sync=False)
             self.client_sockets[index] = sock
+            created = True
+        return created
 
     def read_sockets(self):
         found = 0
@@ -132,8 +139,13 @@ class ShowNavigator:
         self.client_data = client_data
 
     def main_loop(self):
-        time.sleep(2.0)
-        self.read_sockets()
+        # if not self.client_sockets:
+        #     self.create_sockets()
+        #     time.sleep(2.0)
+        # if slow_read:
+        #     time.sleep(2.0)
+        # self.create_sockets()
+        # self.read_sockets()
 
         while self.is_alive:
             if self.last_selection:
@@ -160,11 +172,15 @@ class ShowNavigator:
             if ch == b'h':
                 self.show_help = not self.show_help
 
+            elif ch == b'n':
+                break
+
             elif ch == b'r':
                 self.last_selection = 'Read'
                 self.drill_down_level = 0
                 self.selected_index = [0] * 3
                 self.selected_counts = [0] * 3
+                self.create_sockets()
                 self.read_sockets()
 
             elif ch == b'{space}' or ch == b'{enter}':
@@ -173,6 +189,8 @@ class ShowNavigator:
                     self.selected_index[self.drill_down_level] = 0
 
             elif ch == b'{esc}':
+                if self.integrated_mode and self.drill_down_level == 0:
+                    break
                 if self.drill_down_level > 0:
                     self.drill_down_level -= 1
 
@@ -231,7 +249,10 @@ class ShowNavigator:
         lines = []
         node_index = 0
 
-        lines.append('[NETWORK TOPOLOGY]')
+        if self.integrated_mode:
+            lines.append(f'{Style.DIM}[TERMINALS]{Style.NORMAL} [NETWORK]')
+        else:
+            lines.append('[NETWORK]')
         lines.append('')
         lines.append(
             f'    {Style.DIM}{Fore.RESET}-------------- nodes --------------{Fore.RESET}{Style.NORMAL}'
@@ -407,6 +428,8 @@ class ShowNavigator:
 
                 self.selected_counts[2] = field_index
 
+        if not self.client_data:
+            lines.append('    No nodes')
         lines.append('')
 
         if self.show_help:

@@ -49,7 +49,7 @@ else:
     import termios
 
 LAUNCHER_PORT = 8900
-
+LAUNCHER_CONFIG = 'c:\\git\\.term'
 
 def init():
     """Init CLI tooling"""

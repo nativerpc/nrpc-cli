@@ -6,6 +6,7 @@
 import sys
 import os
 import colorama
+import time
 from nrpc_cli.show_navigator import ShowNavigator
 from nrpc_cli.common_base import (
     set_line_wrap,
@@ -35,6 +36,8 @@ def start():
         try:
             nav = ShowNavigator()
             nav.create_sockets()
+            time.sleep(2.0)
+            nav.read_sockets()
             nav.main_loop()
         except KeyboardInterrupt:
             set_normal_term()

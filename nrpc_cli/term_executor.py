@@ -147,13 +147,14 @@ class TermExecutor:
                     cmd_item.client_index = item['client_index']
                     cmd_item.client_id = item['client_id']
                     cmd_item.command_index = item['command_index']
+                    cmd_item.command_path = item['command_path']
                     cmd_item.command_type = item['command_type']
                     cmd_item.command_entry = item['command_entry']
                     cmd_item.command_parameters = item['command_parameters']
                     cmd_item.visible = item['visible']
                     commands.append(cmd_item)
 
-                for item in prev_commands:
+                for cmd_item in prev_commands:
                     if cmd_item.command_process and cmd_item.command_process.handle:
                         try:
                             cmd_item.command_process.handle.kill()
@@ -168,6 +169,7 @@ class TermExecutor:
                     execs.append({
                         'client_index': item.client_index,
                         'command_index': item.command_index,
+                        'command_path': item.command_path,
                         'command_type': item.command_type,
                         'command_entry': item.command_entry,
                         'enabled': item.enabled,
@@ -184,6 +186,7 @@ class TermExecutor:
                     execs.append({
                         'client_index': item.client_index,
                         'command_index': item.command_index,
+                        'command_path': item.command_path,
                         'command_type': item.command_type,
                         'command_entry': item.command_entry,
                         'enabled': item.enabled,
@@ -230,9 +233,9 @@ class TermExecutor:
                     for item in self.commands:
                         if item.command_process:
                             if item.command_process.handle:
-                                command_entry_short = os.path.basename(command_entry)
+                                command_entry_short = os.path.basename(item.command_entry)
                                 base_name = \
-                                    command_entry_short[0: command_entry_short.index('.')].title() if command_entry else \
+                                    command_entry_short[0: command_entry_short.index('.')].title() if item.command_entry else \
                                     item.command_type.title()
                                 self.print_line(item, f'{base_name} stopped')
                                 try:
@@ -268,6 +271,7 @@ class TermExecutor:
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.PIPE,
                         shell=False,
+                        cwd=cmd_item.command_path if cmd_item.command_path else None
                     )
                     cmd_item.command_process = ProcessInfo(
                         f'execute:{cmd_item.command_type}:{cmd_item.command_entry}',
@@ -302,6 +306,7 @@ class TermExecutor:
                         stdin=subprocess.DEVNULL,
                         stdout=subprocess.PIPE,
                         shell=True,
+                        cwd=cmd_item.command_path if cmd_item.command_path else None
                     )
                     cmd_item.command_process = ProcessInfo(
                         f'execute:{cmd_item.command_type}:{cmd_item.command_entry}:{cmd_item.command_parameters}',
@@ -332,8 +337,9 @@ class TermExecutor:
 
                     if item.command_process:
                         if item.command_process.handle:
+                            command_entry_short = os.path.basename(item.command_entry)
                             base_name = \
-                                item.command_entry[0: item.command_entry.index('.')].title() if item.command_entry else \
+                                command_entry_short[0: command_entry_short.index('.')].title() if item.command_entry else \
                                 item.command_type.title()
                             self.print_line(item, f'{base_name} stopped')
                             try:
@@ -408,6 +414,8 @@ class TermExecutor:
                     elif item.command_process.stopped:
                         if self.verbosity_level >= 1:
                             self.print_line(item, 'Stopped')
+                    elif item.command_type in ['mkdir']:
+                        pass
                     else:
                         self.print_line(item, f'Failed, code={cur_res}')
                     item.command_process.handle = None
@@ -423,9 +431,14 @@ class TermExecutor:
                     self.print_line(item, line)
 
     def print_line(self, command, line):
+        client_index = command.client_index if command else 0
         command_index = command.command_index if command else 0
         if self.verbosity_level >= 1:
-            print(f'{Fore.GREEN}[{command_index}]{Fore.RESET} {line}')
+            if client_index > 0:
+                cmd_num = f'{Fore.GREEN}[{command_index - 2}]{Fore.RESET} '
+            else:
+                cmd_num = f'{Fore.GREEN}[{command_index}]{Fore.RESET} '
+            print(f'{cmd_num} {line}')
         else:
             print(line)
 

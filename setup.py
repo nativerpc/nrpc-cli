@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'term = nrpc_cli.term:start',
             'show = nrpc_cli.show:start',
+            'killall = nrpc_cli.kill:start',
         ],
     }
 )

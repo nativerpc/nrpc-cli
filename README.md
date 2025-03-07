@@ -39,6 +39,7 @@ Command line tools included in this project and registester globally:
 
 - "show" - Shows network topolgy and examines the schema.
 - "term" - Configures interactive terminal execution. Great for demoing.
+- "killall" - Cleans up python and powershell processes.
 
 tutorial video?
 
