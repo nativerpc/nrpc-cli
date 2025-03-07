@@ -76,7 +76,7 @@ class TermLauncher:
         self.show_help = True
         self.verbosity_level = 0
         self.update_count = [0] * 6
-        self.start_path = os.curdir
+        self.start_path = os.path.abspath(os.curdir)
         self.config_time = 0.0
         self.config_check = time.time()
         self.config_dirty = True
@@ -149,7 +149,7 @@ class TermLauncher:
                         if ':' in line:
                             parts = [line[0: line.index(':')], line[line.index(':')+1:]]
                             parts = [x.strip() for x in parts]
-                            if parts[0] == 'start':
+                            if parts[0] in ['start', 'dir']:
                                 self.start_path = os.path.abspath(parts[1])
                                 assert os.path.exists(self.start_path)
                             elif parts[0] == 'help':

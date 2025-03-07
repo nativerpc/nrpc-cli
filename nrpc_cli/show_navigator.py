@@ -434,9 +434,9 @@ class ShowNavigator:
 
         if self.show_help:
             lines.append('Help:')
-            lines.append('    Space - enter, Enter - enter, Esc - exit')
+            lines.append('    Space - enter, Enter - enter, N - network')
             lines.append('    Up/Down - scroll, Left/Right - node switch')
-            lines.append('    R - read, Q - exit')
+            lines.append('    Esc - exit, R - read, Q - exit')
             lines.append('')
 
         set_cursor_visibile(False)

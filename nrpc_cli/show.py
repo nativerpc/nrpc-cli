@@ -20,7 +20,10 @@ import traceback
 def start():
     colorama.init()
 
-    if '-wrap' in sys.argv or '--wrap' in sys.argv:
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print('v1.0.1')
+
+    elif '-wrap' in sys.argv or '--wrap' in sys.argv:
         colorama.init()
         res = set_line_wrap(None, toggle=True)
         if res:

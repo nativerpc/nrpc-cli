@@ -263,7 +263,8 @@ class TermExecutor:
 
                 elif cmd_item.command_type in ['python', 'run'] and \
                         command_entry.endswith('.py'):
-                    cmd = f'{OS_CONFIG_PYTHON} -u {command_entry.replace("\\", "\\\\")} --is-terminal {cmd_item.command_parameters}'
+                    # --is-terminal
+                    cmd = f'{OS_CONFIG_PYTHON} -u {command_entry.replace("\\", "\\\\")} {cmd_item.command_parameters}'
 
                     proc = subprocess.Popen(
                         shlex.split(cmd),

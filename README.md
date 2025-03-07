@@ -54,3 +54,6 @@ python test\test_data.py
 pytest
 etc
 ```
+
+
+set PATH=%PATH%;C:\Users\aarep\AppData\Local\fnm_multishells\6076_1741378646135;C:\Users\aarep\AppData\Local\Microsoft\WinGet\Packages\Schniz.fnm_Microsoft.Winget.Source_8wekyb3d8bbwe
