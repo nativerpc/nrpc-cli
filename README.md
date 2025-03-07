@@ -4,7 +4,7 @@ Cross-platform and cross-language communication library CLI tooling. Part of lar
 
 # Prerequisites
 
-Ensuring up-to-date developer tooling on Ubuntu.
+Configuring developer tooling on Ubuntu.
 
 ```
 pip install setuptools
@@ -12,15 +12,14 @@ pip install build packaging
 pip install pytest colorama ipython
 ```
 
-Ensuring up-to-date developer tooling on Windows:
+Configuring developer tooling on Windows.
 
-- Install CMake
-- Install Visual Studio Community 2022
-
+- Install CMake 3.31 (or older)
+- Install Visual Studio Community 2022 (or older)
 
 # Configuration and dependency build
 
-Project configuration and dependency build.
+Configuring and building dependencies.
 
 ```
 cmake -B build
@@ -28,50 +27,29 @@ cmake -B build
 
 # Build and installation
 
-Local install.
+Building and installing 'nrpc-cli' module globally.
 
 ```
 pip install -e .
 ```
 
-# Manual and automated tests
+# Command line tools
 
-Manual and automated tests.
+Command line tools included in this project and registester globally:
+
+- "show" - Shows network topolgy and examines the schema.
+- "term" - Configures interactive terminal execution. Great for demoing.
+
+tutorial video?
+
+# Manual testing
+
+Technologies utilized by this projects can be tested with the following scripts:
 
 ```
-pytest
-python test\test_process.py
 python test\test_zmq.py
+python test\test_process.py
 python test\test_data.py
+pytest
 etc
-```
-
-# Alternative builds
-
-Alternative PyZmq build. 
-
-```
-cd staging_modules/pyzmq
-set ZMQ_PREFIX=bundled
-set CMAKE_GENERATOR_PLATFORM=x64
-set ZMQ_DRAFT_API=ON
-python -m build
-```
-
-Alternative PyZmq build.
-```
-cd staging_modules/pyzmq
-cmake -B build -DZMQ_PREFIX=bundled -DCMAKE_GENERATOR_PLATFORM=x64 -DZMQ_DRAFT_API=ON
-```
-
-Alternative PyZmq install.
-```
-cd staging_modules/pyzmq
-pip install dist/pyzmq-26.3.0.dev0-cp313-cp313-win_amd64.whl --force-reinstall
-```
-
-Alternative PyZmq install. 
-```
-cd staging_modules/pyzmq
-pip install -e .
 ```
