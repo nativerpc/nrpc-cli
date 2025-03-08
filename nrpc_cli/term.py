@@ -2,6 +2,7 @@
 #   Contents:
 #
 #       start
+#       start_ex
 #
 import sys
 import os
@@ -23,7 +24,7 @@ from . import term_launcher
 def start():
     if '-v' in sys.argv or '--version' in sys.argv:
         print('v1.0.1')
-    
+
     elif '-wrap' in sys.argv or '--wrap' in sys.argv:
         colorama.init()
         res = set_line_wrap(None, toggle=True)
@@ -32,7 +33,19 @@ def start():
         else:
             print('Lines full')
 
-    elif '-ui' in sys.argv or '--ui' in sys.argv:
+    elif 'ex' in sys.argv or '-ex' in sys.argv or '--ex' in sys.argv:
+        colorama.init()
+        app = term_executor.TermExecutor()
+        try:
+            app.main_loop()
+        except KeyboardInterrupt:
+            print('Keyboard exit')
+            os._exit(0)
+        except:  # noqa
+            traceback.print_exc(file=sys.stderr)
+            os._exit(0)
+
+    else:
         colorama.init()
         init_term(line_wrap=False)
         clear_terminal()
@@ -55,6 +68,10 @@ def start():
 
         os._exit(0)
 
+
+def start_ex():
+    if '-v' in sys.argv or '--version' in sys.argv:
+        print('v1.0.1')
     else:
         colorama.init()
         app = term_executor.TermExecutor()
@@ -72,5 +89,6 @@ if __name__ == '__main__':
     start()
 
 __all__ = [
-    start
+    start,
+    start_ex
 ]

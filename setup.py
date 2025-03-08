@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'term = nrpc_cli.term:start',
+            'termex = nrpc_cli.term:start_ex',
             'show = nrpc_cli.show:start',
             'killall = nrpc_cli.kill:start',
         ],
