@@ -187,7 +187,7 @@ class ShowNavigator:
                 self.read_sockets()
 
             elif ch == b'{space}' or ch == b'{enter}':
-                if self.drill_down_level < 2:
+                if self.drill_down_level < 2 and self.selected_counts[self.drill_down_level] > 0:
                     self.drill_down_level += 1
                     self.selected_index[self.drill_down_level] = 0
 
@@ -295,14 +295,14 @@ class ShowNavigator:
             if item['client_id'] == 0:
                 lines.append(
                     f' {arrow} '
-                    f'{node_index}. {color}SERVER{reset} host={app_info["ip_address"]} '
+                    f'{node_index}. {color}SERVER{reset} ip={app_info["ip_address"]} '
                     f'port={y}{app_info["server_id"]}{r} '
                     f'name={y}{app_info["socket_name"]}{r} error={error_text}'
                 )
             else:
                 lines.append(
                     f' {arrow} '
-                    f'{node_index}. {color}CLIENT{reset} host={app_info["ip_address"]} '
+                    f'{node_index}. {color}CLIENT{reset} ip={app_info["ip_address"]} '
                     f'port={y}{app_info["server_id"]}{r} client={y}#{app_info["client_id"]}{r} '
                     f'name={y}{app_info['socket_name']}{r} error={error_text}'
                 )
@@ -339,6 +339,8 @@ class ShowNavigator:
                     f'server={y}{item["has_server"]}{r} '
                     f'error={error_text}'
                 )
+                if item['service_errors']:
+                    lines.append(f'               {rd}{item["service_errors"].strip()}{r}')
 
             for item in schema_info['types']:
                 if item['type_name'] == nrpc_py.DYNAMIC_OBJECT:
@@ -366,6 +368,13 @@ class ShowNavigator:
                 lines.append(
                     f' {arrow} {type_index}. {color}TYPE{reset} name={y}{item["type_name"]}{r} '
                     f'error={error_text}'
+                )
+                if item['type_errors']:
+                    lines.append(f'              {rd}{item["type_errors"].strip()}{r}')
+
+            if type_index == 0:
+                lines.append(
+                    '    No types'
                 )
             self.selected_counts[1] = type_index
 
