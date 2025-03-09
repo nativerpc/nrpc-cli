@@ -81,7 +81,7 @@ class SocketMetadataInfo(TypedDict):
     main_port: int
     main_port_rev: int
     host: str
-    entry_file: str
+    socket_name: str
     start_time: str
     client_signature: bytes
     client_signature_rev: bytes

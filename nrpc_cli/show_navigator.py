@@ -75,7 +75,7 @@ class ShowNavigator:
                 type=nrpc_py.SocketType.CONNECT,
                 protocol=nrpc_py.ProtocolType.TCP,
                 format=nrpc_py.FormatType.JSON,
-                caller='show_navigator_py',
+                name='show_navigator_py',
                 types=[]
             )
             sock.connect('127.0.0.1', start + index, wait=False, sync=False)
@@ -114,6 +114,7 @@ class ShowNavigator:
             assert schema_info['server_id'] == sock.port, f'Port mismatch: {schema_info["server_id"]}, {sock.port}'
             assert schema_info['client_id'] == 0
             assert sock.port == app_info['server_id']
+            assert schema_info
 
             node_index += 1
             client_data.append({
@@ -123,11 +124,13 @@ class ShowNavigator:
                 'schema_info': schema_info,
                 'main_port': sock.port,
             })
+
             for item in schema_clients:
                 node_index += 1
                 client_id = item['client_id']
                 app_info2: nrpc_py.ApplicationInfo = sock.forward_call(client_id, nrpc_py.RoutingMessage.GetAppInfo, {})
                 schema_info2: nrpc_py.SchemaInfo = sock.forward_call(client_id, nrpc_py.RoutingMessage.GetSchema, {})
+                assert schema_info2
                 client_data.append({
                     'server_id': app_info['server_id'],
                     'client_id': item['client_id'],
@@ -264,7 +267,10 @@ class ShowNavigator:
             app_clients: list[nrpc_py.ApplicationInfo.AppClientInfo] = app_info['clients']
             schema_clients: list[nrpc_py.SchemaInfo.SchemaClientInfo] = schema_info['clients']
             error_id = 0
+            assert isinstance(schema_info['services'], list)
+
             for item2 in schema_info['services']:
+                assert item2
                 if item2['service_errors']:
                     error_id = 1
                 for item3 in schema_info['methods']:
@@ -291,14 +297,14 @@ class ShowNavigator:
                     f' {arrow} '
                     f'{node_index}. {color}SERVER{reset} host={app_info["ip_address"]} '
                     f'port={y}{app_info["server_id"]}{r} '
-                    f'name={y}{app_info["entry_file"]}{r} error={error_text}'
+                    f'name={y}{app_info["socket_name"]}{r} error={error_text}'
                 )
             else:
                 lines.append(
                     f' {arrow} '
                     f'{node_index}. {color}CLIENT{reset} host={app_info["ip_address"]} '
                     f'port={y}{app_info["server_id"]}{r} client={y}#{app_info["client_id"]}{r} '
-                    f'name={y}{app_info['entry_file']}{r} error={error_text}'
+                    f'name={y}{app_info['socket_name']}{r} error={error_text}'
                 )
         self.selected_counts[0] = node_index
 

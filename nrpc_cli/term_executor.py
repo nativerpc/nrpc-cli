@@ -65,7 +65,7 @@ class TermExecutor:
                 ip_address='127.0.0.1',
                 port=LAUNCHER_PORT,
                 port_rev=10000 + LAUNCHER_PORT,
-                entry_file='term_executor_py'
+                socket_name='term_executor_py'
             )
             self.client_socket.add_metadata({
                 'fixed_start_time': self.start_time.isoformat(),
