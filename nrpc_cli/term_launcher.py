@@ -409,6 +409,8 @@ class TermLauncher:
                     req = {'command_index': current_command.command_index}
                     self.server_socket.send_rev(current_client_id, [LauncherCommand.ExecuteCommand, req])
                     resp = self.server_socket.recv_rev(current_client_id)
+                    if not resp:
+                        continue
                     resp = json.loads(resp.decode())
                     current_command.enabled = resp['enabled']
 
