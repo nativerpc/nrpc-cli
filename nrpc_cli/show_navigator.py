@@ -40,6 +40,7 @@ class ShowNavigator:
     client_sockets: list[any]  # list[nrpc_py.RoutingSocket]
     client_data: list[any]
     integrated_mode: bool
+    do_stop: bool
 
     def __init__(self, integrated_mode=False):
         self.is_alive = True
@@ -54,9 +55,11 @@ class ShowNavigator:
         self.client_sockets = [None] * 10
         self.client_data = []
         self.integrated_mode = integrated_mode
+        self.do_stop = False
         self.has_nrpc_py = 'nrpc_py' in globals()
 
     def create_sockets(self):
+        assert self.has_nrpc_py, 'Please install nrpc-py dependency!'
         start = 9000
         created = False
         for index in range(len(self.client_sockets)):
@@ -176,6 +179,14 @@ class ShowNavigator:
                 self.show_help = not self.show_help
 
             elif ch == b'n':
+                break
+
+            elif ch == b's':
+                self.last_selection = 'Stop'
+                self.drill_down_level = 0
+                self.selected_index = [0] * 3
+                self.selected_counts = [0] * 3
+                self.do_stop = True
                 break
 
             elif ch == b'r':
@@ -451,7 +462,7 @@ class ShowNavigator:
             lines.append('Help:')
             lines.append('    Space - enter, Enter - enter, N - network')
             lines.append('    Up/Down - scroll, Left/Right - node switch')
-            lines.append('    Esc - exit, R - read, Q - exit')
+            lines.append('    Esc - exit, R - read, S - stop, Q - exit')
             lines.append('')
 
         set_cursor_visibile(False)

@@ -454,6 +454,22 @@ class TermLauncher:
                 if not self.network_navigator.is_alive:
                     break
 
+                if self.network_navigator.do_stop:
+                    self.network_navigator.do_stop = False
+                    self.last_selection = 'Stop'
+                    common_cmd = find_one(self.all_commands, lambda x: x.client_index == 0 and x.command_type == 'stop')
+                    common_cmd.enabled = True
+
+                    for item in [x for x in self.all_commands if x.command_type == 'stop']:
+                        if item.client_index == 0 or item.client_id == 0:
+                            continue
+                        client_id = item.client_id
+                        req = {'command_index': item.command_index}
+                        self.server_socket.send_rev(client_id, [LauncherCommand.ExecuteCommand, req])
+                        resp = self.server_socket.recv_rev(client_id)
+                        resp = json.loads(resp.decode())
+                        item.enabled = resp['enabled']
+
             elif ch == b'h':
                 self.show_help = not self.show_help
                 self.last_selection = 'Help'
